@@ -84,19 +84,19 @@ To achieve this, you will use the Abstract Factory pattern.
 ```java
 // Spain
 ContactFactory spainFactory = new SpainContactFactory(
-    "Carrer Major 34", "Barcelona", "08001", "123456789"
+    "Carrer Major 34", "Barcelona", "08001", "612345678"
 );
 Contact contactSpain = new Contact(spainFactory);
 System.out.println(contactSpain.toString());
-//OUTPUT: Address: Carrer Major 34, 08001 Barcelona | Phone: +34 623 45 67 89
+//OUTPUT: Address: Carrer Major 34, 08001 Barcelona | Phone: +34 612 34 56 78
 
 // USA
 ContactFactory usaFactory = new USAContactFactory(
-    "154 5th Avenue", "New York", "NY 10001", "987654321"
+    "154 5th Avenue", "New York", "NY 10001", "6123456789"
 );
 Contact contactUSA = new Contact(usaFactory);
 System.out.println(contactUSA.toString());
-//OUTPUT: Address: 154 5th Avenue, New York, NY 10001 | Phone: +1 (098) 765-4321
+//OUTPUT: Address: 154 5th Avenue, New York, NY 10001 | Phone: +1 (612) 345-6789
 ```
 
 ## ✨ Features
@@ -117,7 +117,8 @@ System.out.println(contactUSA.toString());
 2. Clone the project repository.
 3. Navigate to the project directory: `cd S3.02-Patterns1`
 4. Compile the project: `mvn compile`
-5. Run the tests: `mvn test`
+5. Run the main application: `mvn exec:java -Dexec.mainClass="Level2.App"`
+6. Run the tests: `mvn test`
 
 ## 📁 Basic Project Structure (Level 2)
 ```text
@@ -152,15 +153,92 @@ Not applicable, as it is a logic class without a graphical interface.
 
 ## 🧩 Diagrams and justification of technical decisions
 
-- **Abstract Factory Pattern**: Implemented with abstract classes `Address`, `Phone`, and the abstract interface `ContactFactory`. Concrete factories (SpainContactFactory, USAContactFactory) create compatible families of products.
+### Architecture Overview
 
-- **Abstract Products**: `Address` and `Phone` define the contract that all concrete implementations must follow. This allows the client to work with any combination without knowing the specific implementation.
+```
+                    ┌─────────────────────┐
+                    │    App (Client)     │
+                    └──────────┬──────────┘
+                               │ uses
+                    ┌──────────▼──────────┐
+                    │  ContactFactory     │
+                    │   (interface)       │
+                    │ + createAddress()   │
+                    │ + createPhone()     │
+                    │ + getStreet()       │
+                    │ + getCity()         │
+                    │ + getZipCode()      │
+                    │ + getPhone()        │
+                    └──┬──────────────┬───┘
+                       │              │
+         ┌─────────────▼─┐   ┌───────▼────────┐
+         │SpainContact   │   │USAContact      │
+         │Factory        │   │Factory         │
+         └────────┬──────┘   └────────┬───────┘
+                  │                   │
+         ┌────────▼───────────────────▼──────┐
+         │      Contact (Client)             │
+         │ - contactFactory: ContactFactory  │
+         │ - address: Address                │
+         │ - phone: Phone                    │
+         │ + toString(): String              │
+         └────┬─────────────────────┬────────┘
+              │                     │
+         ┌────▼────┐           ┌───▼────┐
+         │ Address  │           │ Phone  │
+         │(interface)           │(interface)
+         └─┬──────┬─────┘       └──┬───────┬──┘
+           │      │                 │       │
+    ┌──────▼──┐ ┌─▼──────┐   ┌──────▼─┐ ┌─▼────────┐
+    │Spain    │ │USA     │   │Spain   │ │USA       │
+    │Address  │ │Address │   │Phone   │ │Phone     │
+    └─────────┘ └────────┘   └────────┘ └──────────┘
+```
 
-- **Concrete Products**: Each country has specific address and phone classes that format data according to local conventions. Spain uses specific separators and formats, while USA uses different patterns.
+### Implementation Details
 
-- **Contact Client**: Acts as a bridge between the user and the factory, receiving a factory instance and delegating the creation of products without knowing their concrete implementation.
+- **Abstract Factory Pattern**: 
+  - `ContactFactory` interface defines the contract for creating families of products.
+  - Concrete factories (`SpainContactFactory`, `USAContactFactory`) encapsulate country-specific data and creation logic.
+  - Each factory stores `street`, `city`, `zipCode`, and `phone` as instance variables.
+  - Factories provide getter methods to access this data.
 
-- **Separation of Concerns**: The factory pattern ensures that formatting logic is separated from business logic, making the code more maintainable and extensible.
+- **Abstract Products**:
+  - `Address` interface with `format(street, city, zipCode)` method.
+  - `Phone` interface with `format(number)` and `getPrefix()` methods.
+  - Defines the contract that all concrete implementations must follow.
 
-- **Tests**: JUnit 5 is used to verify that addresses and phones are formatted correctly for each country and that the Contact class properly integrates both products.
+- **Concrete Products**:
+  - `SpainAddress`: Formats as `"street, zipCode city"` (e.g., "Carrer Major 34, 08001 Barcelona")
+  - `USAAddress`: Formats as `"street, city, zipCode"` (e.g., "154 5th Avenue, New York, NY 10001")
+  - `SpainPhone`: Formats as `"+34 XXX XX XX XX"` (9 digits with specific grouping)
+  - `USAPhone`: Formats as `"+1 (XXX) XXX-XXXX"` (10 digits with specific grouping)
+
+- **Contact Client**:
+  - Stores a reference to the `ContactFactory` interface (not concrete implementations).
+  - Creates Address and Phone products using the factory.
+  - Implements `toString()` method that combines formatted address and phone.
+  - Achieves loose coupling and high cohesion.
+
+- **Key Design Decisions**:
+  - **Factory as Data Container**: Factories store contact data (street, city, etc.) in addition to creating products. This simplifies the Contact class initialization.
+  - **Dependency Injection**: Contact receives the factory as a constructor parameter, promoting testability and flexibility.
+  - **Separation of Concerns**: Formatting logic is isolated in respective Address and Phone classes.
+  - **Immutable Data**: Contact stores final references to factory, address, and phone objects.
+
+- **Extensibility (Open/Closed Principle)**:
+  - To add a new country (e.g., Germany), simply create:
+    1. `GermanyContactFactory` implementing `ContactFactory`
+    2. `GermanyAddress` implementing `Address`
+    3. `GermanyPhone` implementing `Phone`
+  - No modifications to existing code required.
+
+- **Unit Tests (18 comprehensive tests)**:
+  - 4 tests for `Contact.toString()` method
+  - 3 tests for Spain address formatting
+  - 3 tests for Spain phone formatting
+  - 3 tests for USA address formatting
+  - 3 tests for USA phone formatting
+  - 2 tests for cross-country comparisons
+  - All tests verify correct behavior and isolation between countries
 
